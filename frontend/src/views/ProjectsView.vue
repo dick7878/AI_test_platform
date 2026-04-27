@@ -3,6 +3,7 @@ import { ElMessage } from 'element-plus'
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
+import { DevLogout } from '../api/auth'
 import { GetProjects } from '../api/projects'
 
 const router = useRouter()
@@ -30,6 +31,18 @@ function OpenProjectDetail(projectId) {
   router.push(`/projects/${projectId}`)
 }
 
+async function HandleLogout() {
+  try {
+    await DevLogout()
+  } catch (_error) {
+    // Logout should still continue on frontend even if backend request fails.
+  } finally {
+    localStorage.removeItem('aits_logged_in')
+    ElMessage.success('已退出登录')
+    await router.replace('/login')
+  }
+}
+
 onMounted(async () => {
   await LoadProjects()
 })
@@ -39,7 +52,10 @@ onMounted(async () => {
   <main class="page">
     <div class="page-header">
       <h2>我的项目</h2>
-      <el-button :loading="loading" type="primary" @click="LoadProjects">刷新</el-button>
+      <div class="header-actions">
+        <el-button :loading="loading" type="primary" @click="LoadProjects">刷新</el-button>
+        <el-button type="danger" plain @click="HandleLogout">退出登录</el-button>
+      </div>
     </div>
 
     <el-alert
@@ -63,3 +79,10 @@ onMounted(async () => {
     </el-row>
   </main>
 </template>
+
+<style scoped>
+.header-actions {
+  display: flex;
+  gap: 8px;
+}
+</style>

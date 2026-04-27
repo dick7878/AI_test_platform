@@ -20,6 +20,7 @@ def Welcome(_request: HttpRequest) -> HttpResponse:
 urlpatterns = [
     path("", Welcome, name="welcome"),
     path("admin/", admin.site.urls),
+    path("api/", include("apps.users.urls")),
     path("api/", include("apps.projects.urls")),
     path("api/", include("apps.apitest.urls")),
     path("api/", include("apps.uitest.urls")),
