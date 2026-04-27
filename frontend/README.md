@@ -1,5 +1,34 @@
 ﻿# AITS MVP 上线前核对清单（可执行版）
 
+## 快速启动（后端 + 前端 + 访问地址）
+
+### 1) 启动后端服务
+
+```powershell
+cd d:\ai_study\ai_test-platform
+docker compose up -d db redis django
+```
+
+后端访问地址：
+
+- 首页健康页：`http://127.0.0.1:8000/`
+- API 根前缀：`http://127.0.0.1:8000/api/`
+- 管理后台：`http://127.0.0.1:8000/admin/`
+
+### 2) 启动前端服务
+
+```powershell
+cd d:\ai_study\ai_test-platform\frontend
+npm install
+npm run dev
+```
+
+前端访问地址：
+
+- `http://localhost:5173`
+
+---
+
 ## 0. 目标与范围
 - 目标：确保当前 MVP 在目标环境可稳定跑通闭环：项目创建 -> 用例生成/保存 -> 执行 -> 结果查询 -> Webhook 通知。
 - 范围：环境变量、Redis/Celery、Webhook 可达性、前后端联调顺序。
