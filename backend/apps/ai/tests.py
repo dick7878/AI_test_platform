@@ -117,6 +117,34 @@ class GenerateApiScriptApiTests(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
+    @patch("apps.ai.views.GenerateApiScriptByInterfaces")
+    def test_generate_script_with_invalid_interfaces_updates_nothing(self, mocked_generate) -> None:
+        mocked_generate.return_value = "def test_users():\n    assert True"
+        another_case = ApiTestCase.objects.create(
+            project=self.project,
+            title="Create user",
+            method="POST",
+            path="/users",
+            script="",
+        )
+        self.client.force_authenticate(user=self.member)
+
+        response = self.client.post(
+            "/api/ai/generate-api-script/",
+            {
+                "project_id": self.project.id,
+                "interfaces": [{"method": None, "path": 123}],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["updated"], 0)
+        self.case.refresh_from_db()
+        another_case.refresh_from_db()
+        self.assertEqual(self.case.script, "")
+        self.assertEqual(another_case.script, "")
+
     def test_generate_script_bad_payload(self) -> None:
         self.client.force_authenticate(user=self.member)
 

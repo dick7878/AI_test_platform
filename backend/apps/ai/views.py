@@ -54,7 +54,7 @@ class GenerateApiScriptView(APIView):
 
         queryset = ApiTestCase.objects.filter(project_id=project_id)
         if not method_path_pairs:
-            return queryset
+            return queryset.none()
 
         matched_queryset = ApiTestCase.objects.none()
         for method, path in method_path_pairs:

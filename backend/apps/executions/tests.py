@@ -56,7 +56,12 @@ class ExecutionTaskRunnerTests(TestCase):
             path="/users",
             script="def test_runner_case():\n    assert True",
         )
-        task = ExecutionTask.objects.create(project=project, trigger="manual", status=ExecutionTask.PENDING)
+        task = ExecutionTask.objects.create(
+            project=project,
+            trigger="manual",
+            status=ExecutionTask.PENDING,
+            summary={"submitted_case_ids": [f"api:{case.id}"]},
+        )
 
         RunTestTask(task_id=task.id)
 
@@ -77,7 +82,12 @@ class ExecutionTaskRunnerTests(TestCase):
             status=UITestCase.DRAFT,
             script="def test_ui_fail(browser_page):\n    assert False",
         )
-        task = ExecutionTask.objects.create(project=project, trigger="manual", status=ExecutionTask.PENDING)
+        task = ExecutionTask.objects.create(
+            project=project,
+            trigger="manual",
+            status=ExecutionTask.PENDING,
+            summary={"submitted_case_ids": [f"ui:{ui_case.id}"]},
+        )
 
         RunTestTask(task_id=task.id)
 
@@ -85,6 +95,57 @@ class ExecutionTaskRunnerTests(TestCase):
         self.assertEqual(result.status, "fail")
         self.assertGreater(len(result.screenshots), 0)
         self.assertTrue(result.screenshots[0].startswith("/media/screenshots/"))
+
+    def test_run_test_task_only_executes_submitted_case_ids(self) -> None:
+        owner = User.objects.create_user(username="exec_selective_owner", password="p@ssw0rd")
+        project = Project.objects.create(name="Selective Runner Project", description="", owner=owner)
+        run_api_case = ApiTestCase.objects.create(
+            project=project,
+            title="Run API Case",
+            method="GET",
+            path="/users",
+            script="def test_run_api_case():\n    assert True",
+        )
+        skip_api_case = ApiTestCase.objects.create(
+            project=project,
+            title="Skip API Case",
+            method="GET",
+            path="/health",
+            script="def test_skip_api_case():\n    assert True",
+        )
+        run_ui_case = UITestCase.objects.create(
+            project=project,
+            title="Run UI Case",
+            status=UITestCase.DRAFT,
+            script="def test_run_ui_case(browser_page):\n    assert True",
+        )
+        skip_ui_case = UITestCase.objects.create(
+            project=project,
+            title="Skip UI Case",
+            status=UITestCase.DRAFT,
+            script="def test_skip_ui_case(browser_page):\n    assert True",
+        )
+        task = ExecutionTask.objects.create(
+            project=project,
+            trigger="manual",
+            status=ExecutionTask.PENDING,
+            summary={"submitted_case_ids": [f"api:{run_api_case.id}", f"ui:{run_ui_case.id}"]},
+        )
+
+        RunTestTask(task_id=task.id)
+
+        task.refresh_from_db()
+        result_pairs = set(task.results.values_list("content_type__model", "object_id"))
+        self.assertEqual(task.summary["total"], 2)
+        self.assertEqual(
+            result_pairs,
+            {
+                ("apitestcase", run_api_case.id),
+                ("uitestcase", run_ui_case.id),
+            },
+        )
+        self.assertNotIn(("apitestcase", skip_api_case.id), result_pairs)
+        self.assertNotIn(("uitestcase", skip_ui_case.id), result_pairs)
 
 
 class ExecutionNotificationTests(TestCase):

@@ -160,6 +160,27 @@ def SendExecutionNotification(task: ExecutionTask) -> None:
         return
 
 
+def ParseSubmittedCaseIds(submitted_case_ids: object) -> tuple[set[int], set[int]]:
+    api_ids: set[int] = set()
+    ui_ids: set[int] = set()
+    if not isinstance(submitted_case_ids, list):
+        return api_ids, ui_ids
+
+    for case_identifier in submitted_case_ids:
+        if not isinstance(case_identifier, str):
+            continue
+        case_type, separator, raw_case_id = case_identifier.partition(":")
+        if separator != ":" or not raw_case_id.isdigit():
+            continue
+
+        case_id = int(raw_case_id)
+        if case_type == "api":
+            api_ids.add(case_id)
+        elif case_type == "ui":
+            ui_ids.add(case_id)
+    return api_ids, ui_ids
+
+
 def RunTestTask(task_id: int) -> None:
     task = ExecutionTask.objects.select_related("project").get(id=task_id)
     task.status = ExecutionTask.RUNNING
@@ -169,10 +190,19 @@ def RunTestTask(task_id: int) -> None:
     api_content_type = ContentType.objects.get_for_model(ApiTestCase)
     ui_content_type = ContentType.objects.get_for_model(UITestCase)
 
+    submitted_case_ids = {}
+    if isinstance(task.summary, dict):
+        submitted_case_ids = task.summary
+    selected_api_ids, selected_ui_ids = ParseSubmittedCaseIds(
+        submitted_case_ids=submitted_case_ids.get("submitted_case_ids"),
+    )
+
     cases_to_run: list[tuple[int, str, int, str]] = []
-    for api_case in ApiTestCase.objects.filter(project=task.project).exclude(script=""):
+    for api_case in (
+        ApiTestCase.objects.filter(project=task.project, id__in=selected_api_ids).exclude(script="")
+    ):
         cases_to_run.append((api_case.id, api_case.script, api_content_type.id, "api"))
-    for ui_case in UITestCase.objects.filter(project=task.project).exclude(script=""):
+    for ui_case in UITestCase.objects.filter(project=task.project, id__in=selected_ui_ids).exclude(script=""):
         cases_to_run.append((ui_case.id, ui_case.script, ui_content_type.id, "ui"))
 
     total = 0
