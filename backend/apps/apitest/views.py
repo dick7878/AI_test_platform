@@ -1,0 +1,30 @@
+﻿from django.db.models import Q
+from rest_framework import permissions, viewsets
+from rest_framework.exceptions import PermissionDenied
+
+from apps.projects.models import Project
+
+from .models import ApiTestCase
+from .serializers import ApiTestCaseSerializer
+
+
+class ApiTestCaseViewSet(viewsets.ModelViewSet):
+    serializer_class = ApiTestCaseSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def _get_accessible_projects(self):
+        user = self.request.user
+        return Project.objects.filter(Q(owner=user) | Q(projectmember__user=user)).distinct()
+
+    def get_queryset(self):
+        queryset = ApiTestCase.objects.filter(project__in=self._get_accessible_projects())
+        project_id = self.request.query_params.get("project")
+        if project_id:
+            queryset = queryset.filter(project_id=project_id)
+        return queryset
+
+    def perform_create(self, serializer) -> None:
+        project = serializer.validated_data["project"]
+        if not self._get_accessible_projects().filter(id=project.id).exists():
+            raise PermissionDenied("You do not have permission to use this project.")
+        serializer.save()
